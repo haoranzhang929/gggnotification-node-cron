@@ -7,28 +7,26 @@ import { checkEnvs, CommandMap } from './config';
 dotenv.config();
 
 const createBot = async () => {
-  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN !== '') {
-    const telegramBot = new TelegramBot(
-      process.env.TELEGRAM_BOT_TOKEN as string,
-      {
-        polling: true,
-      }
-    );
-    return { telegramBot, botInfo: await telegramBot.getMe() };
-  } else {
-    console.error('No token provided');
-    process.exit(1);
-  }
+  const telegramBot = new TelegramBot(
+    process.env.TELEGRAM_BOT_TOKEN as string,
+    {
+      polling: true,
+    }
+  );
+  return { telegramBot, botInfo: await telegramBot.getMe() };
 };
 
 const init = async () => {
+  console.log('Initializing service...\n');
   checkEnvs();
+
+  console.log('Envs checked\n');
   const { telegramBot, botInfo } = await createBot();
 
   const chatIdMap = new Map<number, string | undefined>();
 
+  console.log('Telegram Bot connected, listening to incoming messages...\n');
   telegramBot.on('message', async (msg) => {
-    console.log(msg);
     if (chatIdMap.get(msg.chat.id) === undefined) {
       chatIdMap.set(msg.chat.id, msg.chat.title);
     }
