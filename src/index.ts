@@ -1,10 +1,10 @@
 import * as cron from 'node-cron';
-import * as dotenv from 'dotenv';
 import TelegramBot from 'node-telegram-bot-api';
 
-import { checkEnvs, CommandMap } from './config';
-
-dotenv.config();
+import {
+  checkEnvsAndGenerateCommandMap,
+  getCurrentWeekOfMonth,
+} from './config';
 
 const createBot = async () => {
   const telegramBot = new TelegramBot(
@@ -18,17 +18,21 @@ const createBot = async () => {
 
 const init = async () => {
   console.log('Initializing service...\n');
-  checkEnvs();
-
+  const CommandMap = checkEnvsAndGenerateCommandMap();
   console.log('Envs checked\n');
+
+  if (!cron.validate(process.env.CRON_SCHEDULE as string)) {
+    throw new Error('Invalid CRON_SCHEDULE\n');
+  }
+
   const { telegramBot, botInfo } = await createBot();
 
-  const chatIdMap = new Map<number, string | undefined>();
+  const chatIdMap = new Map<number, TelegramBot.User>();
 
   console.log('Telegram Bot connected, listening to incoming messages...\n');
   telegramBot.on('message', async (msg) => {
     if (chatIdMap.get(msg.chat.id) === undefined) {
-      chatIdMap.set(msg.chat.id, msg.chat.title);
+      chatIdMap.set(msg.chat.id, botInfo);
     }
     if (msg.text) {
       let messageToSend: string = '',
@@ -39,8 +43,8 @@ const init = async () => {
         messageToSend = commandData.message;
         parse_mode = commandData.parse_mode;
       }
-      if (commandData?.handler) {
-        messageToSend = await commandData.handler();
+      if (commandData?.msgHandler) {
+        messageToSend = await commandData.msgHandler();
       }
       messageToSend &&
         telegramBot.sendMessage(msg.chat.id, messageToSend, {
@@ -49,16 +53,35 @@ const init = async () => {
     }
   });
 
-  // cron.schedule(process.env.CRON_SCHEDULE as string, async () => {
-  //   console.log(`cron job runs...`);
-  //   const chatIds = Array.from(chatIdMap.keys());
-  //   const chatTitles = Array.from(chatIdMap.values());
-  //   console.log(chatIds);
-  //   console.log(chatTitles);
-  //   for (const chatId of chatIds) {
-  //     await telegramBot.sendMessage(chatId, 'Fuck you!');
-  //   }
-  // });
+  const cronJob = cron.schedule(
+    process.env.CRON_SCHEDULE as string,
+    async () => {
+      console.log(`Cron job runs at ${new Date().toISOString()}`);
+      const currentWeekOfMonth = getCurrentWeekOfMonth();
+      const isEvenWeek = currentWeekOfMonth % 2 === 0;
+      let alertMessage = '';
+      if (!isEvenWeek) {
+        alertMessage =
+          "Dont't forget to take out the organic + recycling bin today!";
+      } else {
+        alertMessage = "Dont't forget to take out the general bin today!";
+      }
+      chatIdMap.forEach((_, chatId) => {
+        telegramBot.sendMessage(
+          chatId,
+          `==================================================
+🚨 <strong>${alertMessage}</strong>
+==================================================
+          `,
+          {
+            parse_mode: 'HTML',
+          }
+        );
+      });
+    }
+  );
+  cronJob.start();
+  console.log('Cron job started\n');
 };
 
 init();
