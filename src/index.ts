@@ -44,6 +44,7 @@ const init = async () => {
 
   logger.info('Telegram Bot connected, listening to incoming messages...');
   telegramBot.on('message', async (msg) => {
+    logger.debug('Message Details: ', { data: msg });
     if (chatIdMap.get(msg.chat.id) === undefined) {
       chatIdMap.set(msg.chat.id, msg.chat);
     }
@@ -70,7 +71,6 @@ const init = async () => {
           }
           break;
         case Command.Bin:
-          logger.debug('Message Details: ', { data: msg });
           telegramBot.sendMessage(
             msg.chat.id,
             `<strong>This Week:</strong> ${checkWhichBinToCollect(
