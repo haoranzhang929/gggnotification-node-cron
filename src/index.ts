@@ -82,12 +82,13 @@ const init = async () => {
               parse_mode: 'HTML',
             }
           );
+          break;
       }
     }
   });
 
   telegramBot.on('polling_error', (error) => {
-    logger.error('Polling error: ', { data: error });
+    logger.error('Telegrame bot polling error: ', { data: error });
   });
 
   const cronJob = cron.schedule(
