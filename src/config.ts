@@ -1,7 +1,5 @@
-import TelegramBot from 'node-telegram-bot-api';
 import axios from 'axios';
-
-import { logger } from './logging';
+import { Logger } from 'winston';
 
 export const lisfOfEnvVars = [
   'TELEGRAM_BOT_TOKEN',
@@ -12,7 +10,7 @@ export const lisfOfEnvVars = [
   'TIMEZONE',
 ];
 
-export const checkEnvVars = (envVars: string[]) => {
+export const checkEnvVars = (envVars: string[], logger: Logger) => {
   const missingEnvs: string[] = [];
   envVars.forEach((envVar) => {
     if (!process.env[envVar] || process.env[envVar] === 'undefined') {
@@ -23,32 +21,13 @@ export const checkEnvVars = (envVars: string[]) => {
   return missingEnvs;
 };
 
-export const generateCommandMap = () =>
-  new Map<
-    string,
-    {
-      message?: string;
-      parse_mode?: TelegramBot.ParseMode;
-      msgHandler?: () => Promise<string>;
-    }
-  >([
-    [
-      '/wifi',
-      {
-        message: `Wi-Fi密码:   <code>${process.env.WIFI_PASSWORD}</code>`,
-        parse_mode: 'HTML',
-      },
-    ],
-    ['/bin', { message: `你个小垃圾，这个功能还没做好` }],
-    [
-      '/dad_joke',
-      {
-        msgHandler: dadJokeHandler,
-      },
-    ],
-  ]);
+export enum Command {
+  Wifi = '/wifi',
+  Bin = '/bin',
+  DadJoke = '/dad_joke',
+}
 
-const dadJokeHandler = async () => {
+export const dadJokeHandler = async () => {
   const response = await axios.get(
     'https://dad-jokes.p.rapidapi.com/random/joke',
     {
@@ -63,7 +42,7 @@ const dadJokeHandler = async () => {
   return `😉 Here is your dad joke:\n\n${dadJoke.setup}\n\n${dadJoke.punchline}`;
 };
 
-const getCurrentWeekOfMonth = (data: Date = new Date()) => {
+export const getWeekOfMonth = (data: Date = new Date()) => {
   const firstDay = new Date(data.getFullYear(), data.getMonth(), 1);
   const dayOfWeek = firstDay.getDay();
   const spendDay = 1;
@@ -74,7 +53,7 @@ const getCurrentWeekOfMonth = (data: Date = new Date()) => {
   }
 };
 
-export const getBinsOfCurrentWeek = () => {
-  const isEvenWeek = getCurrentWeekOfMonth() % 2 === 0;
-  return isEvenWeek ? 'general 🟤 bin' : 'organic 🔴 + recycling 🟢 bins';
-};
+const binsList = ['General 🟤', 'Recycling 🟢', 'Compost 🟡'];
+
+export const checkWhichBinToCollect = (isEvenWeek: boolean) =>
+  isEvenWeek ? binsList[0] : binsList.slice(1).join(' + ');

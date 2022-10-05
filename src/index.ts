@@ -2,12 +2,14 @@ import * as cron from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
 import * as dotenv from 'dotenv';
 
-import { logger } from './logging';
+import { createLogger } from './logging';
 import {
-  generateCommandMap,
   checkEnvVars,
-  getBinsOfCurrentWeek,
+  checkWhichBinToCollect,
+  getWeekOfMonth,
   lisfOfEnvVars,
+  Command,
+  dadJokeHandler,
 } from './config';
 
 const createBot = async () => {
@@ -22,23 +24,22 @@ const createBot = async () => {
 
 const init = async () => {
   dotenv.config();
+  const logger = createLogger();
   logger.info('Initializing service...');
 
-  const missingEnvs = checkEnvVars(lisfOfEnvVars);
+  const missingEnvs = checkEnvVars(lisfOfEnvVars, logger);
   if (missingEnvs.length > 0) {
     throw new Error(`Missing env vars: ${missingEnvs.join(', ')}`);
   }
-  logger.info('Envs checked');
-
   if (!cron.validate(process.env.CRON_SCHEDULE as string)) {
     const errorMsg = `Invalid cron schedule: ${process.env.CRON_SCHEDULE}`;
     logger.error(errorMsg);
     throw new Error(errorMsg);
   }
+  logger.info('Env var validated');
 
   const { telegramBot, botInfo } = await createBot();
 
-  const CommandMap = generateCommandMap();
   const chatIdMap = new Map<number, TelegramBot.Chat>();
 
   logger.info('Telegram Bot connected, listening to incoming messages...');
@@ -47,32 +48,59 @@ const init = async () => {
       chatIdMap.set(msg.chat.id, msg.chat);
     }
     if (msg.text) {
-      let messageToSend: string = '',
-        parse_mode: TelegramBot.ParseMode | undefined = undefined;
       const commandWithoutSurfix = msg.text.split(`@${botInfo.username}`)[0];
-      const commandData = CommandMap.get(commandWithoutSurfix);
-      if (commandData?.message) {
-        messageToSend = commandData.message;
-        parse_mode = commandData.parse_mode;
+
+      switch (commandWithoutSurfix) {
+        case Command.Wifi:
+          telegramBot.sendMessage(
+            msg.chat.id,
+            `Wi-Fi密码:   <code>${process.env.WIFI_PASSWORD}</code>`,
+            { parse_mode: 'HTML' }
+          );
+          break;
+        case Command.DadJoke:
+          try {
+            telegramBot.sendMessage(msg.chat.id, await dadJokeHandler());
+          } catch (error) {
+            logger.error('Error when calling dad joke API: ', { data: error });
+            telegramBot.sendMessage(
+              msg.chat.id,
+              'Sorry, I am not feeling like telling joke now. Please try again later.'
+            );
+          }
+          break;
+        case Command.Bin:
+          logger.debug('Message Details: ', { data: msg });
+          telegramBot.sendMessage(
+            msg.chat.id,
+            `<strong>This Week:</strong> ${checkWhichBinToCollect(
+              getWeekOfMonth() % 2 === 0
+            )}\n<strong>Next Week:</strong> ${checkWhichBinToCollect(
+              getWeekOfMonth() % 2 !== 0
+            )}`,
+            {
+              parse_mode: 'HTML',
+            }
+          );
       }
-      if (commandData?.msgHandler) {
-        messageToSend = await commandData.msgHandler();
-      }
-      messageToSend &&
-        telegramBot.sendMessage(msg.chat.id, messageToSend, {
-          parse_mode,
-        });
     }
+  });
+
+  telegramBot.on('polling_error', (error) => {
+    logger.error('Polling error: ', { data: error });
   });
 
   const cronJob = cron.schedule(
     process.env.CRON_SCHEDULE as string,
     async () => {
-      let alertMessage = `Dont't forget to take out the ${getBinsOfCurrentWeek()} today!`;
+      let alertMessage = `Dont't forget to take out the ${checkWhichBinToCollect(
+        getWeekOfMonth() % 2 === 0
+      )} bin today!`;
       chatIdMap.forEach((chatInfo, chatId) => {
         logger.info(
           `Cron job sending message to ${chatInfo.title}, id: ${chatId}`
         );
+        logger.debug(`Chat Info: `, { data: chatInfo });
         telegramBot.sendMessage(chatId, `🚨 <strong>${alertMessage}</strong>`, {
           parse_mode: 'HTML',
         });
