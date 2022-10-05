@@ -1,6 +1,7 @@
-import * as cron from 'node-cron';
+import { schedule, validate } from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
-import * as dotenv from 'dotenv';
+import { config } from 'dotenv';
+import express from 'express';
 
 import { createLogger } from './logging';
 import {
@@ -22,16 +23,17 @@ const createBot = async () => {
   return { telegramBot, botInfo: await telegramBot.getMe() };
 };
 
+config();
+const logger = createLogger();
+
 const init = async () => {
-  dotenv.config();
-  const logger = createLogger();
   logger.info('Initializing service...');
 
   const missingEnvs = checkEnvVars(lisfOfEnvVars, logger);
   if (missingEnvs.length > 0) {
     throw new Error(`Missing env vars: ${missingEnvs.join(', ')}`);
   }
-  if (!cron.validate(process.env.CRON_SCHEDULE as string)) {
+  if (!validate(process.env.CRON_SCHEDULE as string)) {
     const errorMsg = `Invalid cron schedule: ${process.env.CRON_SCHEDULE}`;
     logger.error(errorMsg);
     throw new Error(errorMsg);
@@ -91,7 +93,7 @@ const init = async () => {
     logger.error('Telegrame bot polling error: ', { data: error });
   });
 
-  const cronJob = cron.schedule(
+  const cronJob = schedule(
     process.env.CRON_SCHEDULE as string,
     async () => {
       let alertMessage = `Dont't forget to take out the ${checkWhichBinToCollect(
@@ -116,3 +118,24 @@ const init = async () => {
 };
 
 init();
+
+const server = express();
+const port = process.env.PORT || 3000;
+
+server.get('/health', (_req, res) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: Date.now(),
+  };
+  try {
+    res.send(healthcheck);
+  } catch (error) {
+    healthcheck.message = error as string;
+    res.status(503).send();
+  }
+});
+
+server.listen(port, () => {
+  logger.info(`Server listening on port: ${port}`);
+});
