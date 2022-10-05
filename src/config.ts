@@ -1,60 +1,30 @@
 import TelegramBot from 'node-telegram-bot-api';
 import axios from 'axios';
-import * as dotenv from 'dotenv';
 
-export const checkEnvsAndGenerateCommandMap = () => {
-  dotenv.config();
+import { logger } from './logging';
+
+export const lisfOfEnvVars = [
+  'TELEGRAM_BOT_TOKEN',
+  'WIFI_PASSWORD',
+  'RAPID_API_KEY',
+  'RAPID_API_HOST',
+  'CRON_SCHEDULE',
+  'TIMEZONE',
+];
+
+export const checkEnvVars = (envVars: string[]) => {
   const missingEnvs: string[] = [];
-  if (
-    process.env.TELEGRAM_BOT_TOKEN === undefined ||
-    process.env.TELEGRAM_BOT_TOKEN === '' ||
-    process.env.TELEGRAM_BOT_TOKEN === 'undefined'
-  ) {
-    console.error('Missing TELEGRAM_BOT_TOKEN');
-    missingEnvs.push('TELEGRAM_BOT_TOKEN');
-  }
+  envVars.forEach((envVar) => {
+    if (!process.env[envVar] || process.env[envVar] === 'undefined') {
+      logger.error(`Missing ${envVar}`);
+      missingEnvs.push(envVar);
+    }
+  });
+  return missingEnvs;
+};
 
-  if (
-    process.env.WIFI_PASSWORD === undefined ||
-    process.env.WIFI_PASSWORD === '' ||
-    process.env.WIFI_PASSWORD === 'undefined'
-  ) {
-    console.error('Missing WIFI_PASSWORD');
-    missingEnvs.push('WIFI_PASSWORD');
-  }
-
-  if (
-    process.env.RAPID_API_KEY === undefined ||
-    process.env.RAPID_API_KEY === '' ||
-    process.env.RAPID_API_KEY === 'undefined'
-  ) {
-    console.error('Missing RAPID_API_KEY');
-    missingEnvs.push('RAPID_API_KEY');
-  }
-
-  if (
-    process.env.RAPID_API_HOST === undefined ||
-    process.env.RAPID_API_HOST === '' ||
-    process.env.TELEGRAM_BOT_TOKEN === 'undefined'
-  ) {
-    console.error('Missing RAPID_API_HOST');
-    missingEnvs.push('RAPID_API_HOST');
-  }
-
-  if (
-    process.env.CRON_SCHEDULE === undefined ||
-    process.env.CRON_SCHEDULE === '' ||
-    process.env.CRON_SCHEDULE === 'undefined'
-  ) {
-    console.error('Missing CRON_SCHEDULE');
-    missingEnvs.push('CRON_SCHEDULE');
-  }
-
-  if (missingEnvs.length > 0) {
-    throw new Error(`Missing envs: ${missingEnvs.join(', ')}`);
-  }
-
-  return new Map<
+export const generateCommandMap = () =>
+  new Map<
     string,
     {
       message?: string;
@@ -77,7 +47,6 @@ export const checkEnvsAndGenerateCommandMap = () => {
       },
     ],
   ]);
-};
 
 const dadJokeHandler = async () => {
   const response = await axios.get(

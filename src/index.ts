@@ -1,7 +1,14 @@
 import * as cron from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
+import * as dotenv from 'dotenv';
 
-import { checkEnvsAndGenerateCommandMap, getBinsOfCurrentWeek } from './config';
+import { logger } from './logging';
+import {
+  generateCommandMap,
+  checkEnvVars,
+  getBinsOfCurrentWeek,
+  lisfOfEnvVars,
+} from './config';
 
 const createBot = async () => {
   const telegramBot = new TelegramBot(
@@ -14,22 +21,30 @@ const createBot = async () => {
 };
 
 const init = async () => {
-  console.log('Initializing service...\n');
-  const CommandMap = checkEnvsAndGenerateCommandMap();
-  console.log('Envs checked\n');
+  dotenv.config();
+  logger.info('Initializing service...');
+
+  const missingEnvs = checkEnvVars(lisfOfEnvVars);
+  if (missingEnvs.length > 0) {
+    throw new Error(`Missing env vars: ${missingEnvs.join(', ')}`);
+  }
+  logger.info('Envs checked');
 
   if (!cron.validate(process.env.CRON_SCHEDULE as string)) {
-    throw new Error('Invalid CRON_SCHEDULE\n');
+    const errorMsg = `Invalid cron schedule: ${process.env.CRON_SCHEDULE}`;
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   const { telegramBot, botInfo } = await createBot();
 
-  const chatIdMap = new Map<number, TelegramBot.User>();
+  const CommandMap = generateCommandMap();
+  const chatIdMap = new Map<number, TelegramBot.Chat>();
 
-  console.log('Telegram Bot connected, listening to incoming messages...\n');
+  logger.info('Telegram Bot connected, listening to incoming messages...');
   telegramBot.on('message', async (msg) => {
     if (chatIdMap.get(msg.chat.id) === undefined) {
-      chatIdMap.set(msg.chat.id, botInfo);
+      chatIdMap.set(msg.chat.id, msg.chat);
     }
     if (msg.text) {
       let messageToSend: string = '',
@@ -53,17 +68,22 @@ const init = async () => {
   const cronJob = cron.schedule(
     process.env.CRON_SCHEDULE as string,
     async () => {
-      console.log(`Cron job runs at ${new Date().toISOString()}`);
       let alertMessage = `Dont't forget to take out the ${getBinsOfCurrentWeek()} today!`;
-      chatIdMap.forEach((_, chatId) => {
+      chatIdMap.forEach((chatInfo, chatId) => {
+        logger.info(
+          `Cron job sending message to ${chatInfo.title}, id: ${chatId}`
+        );
         telegramBot.sendMessage(chatId, `🚨 <strong>${alertMessage}</strong>`, {
           parse_mode: 'HTML',
         });
       });
+    },
+    {
+      timezone: process.env.TIMEZONE,
     }
   );
   cronJob.start();
-  console.log('Cron job started\n');
+  logger.info('Cron job started');
 };
 
 init();
