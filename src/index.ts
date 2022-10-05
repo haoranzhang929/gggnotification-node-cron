@@ -1,10 +1,7 @@
 import * as cron from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
 
-import {
-  checkEnvsAndGenerateCommandMap,
-  getCurrentWeekOfMonth,
-} from './config';
+import { checkEnvsAndGenerateCommandMap, getBinsOfCurrentWeek } from './config';
 
 const createBot = async () => {
   const telegramBot = new TelegramBot(
@@ -57,26 +54,11 @@ const init = async () => {
     process.env.CRON_SCHEDULE as string,
     async () => {
       console.log(`Cron job runs at ${new Date().toISOString()}`);
-      const currentWeekOfMonth = getCurrentWeekOfMonth();
-      const isEvenWeek = currentWeekOfMonth % 2 === 0;
-      let alertMessage = '';
-      if (!isEvenWeek) {
-        alertMessage =
-          "Dont't forget to take out the organic + recycling bin today!";
-      } else {
-        alertMessage = "Dont't forget to take out the general bin today!";
-      }
+      let alertMessage = `Dont't forget to take out the ${getBinsOfCurrentWeek()} today!`;
       chatIdMap.forEach((_, chatId) => {
-        telegramBot.sendMessage(
-          chatId,
-          `==================================================
-🚨 <strong>${alertMessage}</strong>
-==================================================
-          `,
-          {
-            parse_mode: 'HTML',
-          }
-        );
+        telegramBot.sendMessage(chatId, `🚨 <strong>${alertMessage}</strong>`, {
+          parse_mode: 'HTML',
+        });
       });
     }
   );

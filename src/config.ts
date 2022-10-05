@@ -94,7 +94,7 @@ const dadJokeHandler = async () => {
   return `😉 Here is your dad joke:\n\n${dadJoke.setup}\n\n${dadJoke.punchline}`;
 };
 
-export const getCurrentWeekOfMonth = (data: Date = new Date()) => {
+const getCurrentWeekOfMonth = (data: Date = new Date()) => {
   const firstDay = new Date(data.getFullYear(), data.getMonth(), 1);
   const dayOfWeek = firstDay.getDay();
   const spendDay = 1;
@@ -103,4 +103,9 @@ export const getCurrentWeekOfMonth = (data: Date = new Date()) => {
   } else {
     return Math.ceil(spendDay / 7);
   }
+};
+
+export const getBinsOfCurrentWeek = () => {
+  const isEvenWeek = getCurrentWeekOfMonth() % 2 === 0;
+  return isEvenWeek ? 'general 🟤 bin' : 'organic 🔴 + recycling 🟢 bins';
 };
