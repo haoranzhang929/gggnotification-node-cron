@@ -85,6 +85,16 @@ const init = async () => {
             }
           );
           break;
+        case '/__testcronmsg':
+          telegramBot.sendMessage(
+            msg.chat.id,
+            `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
+              getWeekOfMonth() % 2 === 0
+            )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`,
+            {
+              parse_mode: 'HTML',
+            }
+          );
       }
     }
   });
@@ -96,17 +106,15 @@ const init = async () => {
   const cronJob = schedule(
     process.env.CRON_SCHEDULE as string,
     async () => {
-      let alertMessage = `Dont't forget to take out the ${checkWhichBinToCollect(
+      let alertMessage = `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
         getWeekOfMonth() % 2 === 0
-      )} bin today!`;
+      )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`;
       chatIdMap.forEach((chatInfo, chatId) => {
         logger.info(
           `Cron job sending message to ${chatInfo.title}, id: ${chatId}`
         );
         logger.debug(`Chat Info: `, { data: chatInfo });
-        telegramBot.sendMessage(chatId, `🚨 <strong>${alertMessage}</strong>`, {
-          parse_mode: 'HTML',
-        });
+        telegramBot.sendMessage(chatId, alertMessage, { parse_mode: 'HTML' });
       });
     },
     {
@@ -134,6 +142,10 @@ server.get('/health', (_req, res) => {
     healthcheck.message = error as string;
     res.status(503).send();
   }
+});
+
+server.get('/', (_req, res) => {
+  res.send({ message: '格里芬幽谷密林小管家api欢迎你' });
 });
 
 server.listen(port, () => {
