@@ -76,7 +76,7 @@ const init = async () => {
           telegramBot.sendMessage(
             msg.chat.id,
             `<strong>This Week:</strong> ${checkWhichBinToCollect(
-              getWeekOfMonth() % 2 === 0
+              getWeekOfMonth() % 2 === 1
             )}\n<strong>Next Week:</strong> ${checkWhichBinToCollect(
               getWeekOfMonth() % 2 !== 0
             )}`,
@@ -89,7 +89,7 @@ const init = async () => {
           telegramBot.sendMessage(
             msg.chat.id,
             `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-              getWeekOfMonth() % 2 === 0
+              getWeekOfMonth() % 2 === 1
             )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`,
             {
               parse_mode: 'HTML',
@@ -107,7 +107,7 @@ const init = async () => {
     process.env.CRON_SCHEDULE as string,
     async () => {
       let alertMessage = `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-        getWeekOfMonth() % 2 === 0
+        getWeekOfMonth() % 2 === 1
       )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`;
       chatIdMap.forEach((chatInfo, chatId) => {
         logger.info(
