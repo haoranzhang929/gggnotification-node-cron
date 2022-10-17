@@ -2,16 +2,23 @@ import { schedule, validate } from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
 import { config } from 'dotenv';
 import express from 'express';
+import dayjs from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
+import timezone from 'dayjs/plugin/timezone';
 
 import { createLogger } from './logging';
 import {
   checkEnvVars,
   checkWhichBinToCollect,
-  getWeekOfMonth,
   lisfOfEnvVars,
   Command,
   dadJokeHandler,
+  isEvenWeek,
 } from './config';
+
+dayjs.extend(weekOfYear);
+dayjs.extend(timezone);
+dayjs.tz.setDefault(process.env.TIMEZONE || 'Europe/Dublin');
 
 const createBot = async () => {
   const telegramBot = new TelegramBot(
@@ -76,9 +83,9 @@ const init = async () => {
           telegramBot.sendMessage(
             msg.chat.id,
             `<strong>This Week:</strong> ${checkWhichBinToCollect(
-              getWeekOfMonth() % 2 === 1
+              isEvenWeek()
             )}\n<strong>Next Week:</strong> ${checkWhichBinToCollect(
-              getWeekOfMonth() % 2 !== 0
+              !isEvenWeek()
             )}`,
             {
               parse_mode: 'HTML',
@@ -89,7 +96,7 @@ const init = async () => {
           telegramBot.sendMessage(
             msg.chat.id,
             `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-              getWeekOfMonth() % 2 === 1
+              isEvenWeek()
             )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`,
             {
               parse_mode: 'HTML',
@@ -107,7 +114,7 @@ const init = async () => {
     process.env.CRON_SCHEDULE as string,
     async () => {
       let alertMessage = `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-        getWeekOfMonth() % 2 === 1
+        isEvenWeek()
       )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`;
       chatIdMap.forEach((chatInfo, chatId) => {
         logger.info(

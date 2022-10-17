@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Logger } from 'winston';
+import dayjs from 'dayjs';
 
 export const lisfOfEnvVars = [
   'TELEGRAM_BOT_TOKEN',
@@ -42,18 +43,13 @@ export const dadJokeHandler = async () => {
   return `😉 Here is your dad joke:\n\n${dadJoke.setup}\n\n${dadJoke.punchline}`;
 };
 
-export const getWeekOfMonth = (data: Date = new Date()) => {
-  const firstDay = new Date(data.getFullYear(), data.getMonth(), 1);
-  const dayOfWeek = firstDay.getDay();
-  const spendDay = 1;
-  if (dayOfWeek !== 0) {
-    return Math.ceil((spendDay + dayOfWeek) / 7);
-  } else {
-    return Math.ceil(spendDay / 7);
-  }
-};
-
 const binsList = ['General 🟤', 'Recycling 🟢', 'Compost 🟡'];
 
 export const checkWhichBinToCollect = (isEvenWeek: boolean) =>
   isEvenWeek ? binsList[0] : binsList.slice(1).join(' + ');
+
+export const isEvenWeek = (date: Date | string = new Date()) => {
+  const isWeekEven = dayjs(date).week() % 2 === 0;
+  const isYearEven = dayjs(date).year() % 2 === 0;
+  return isYearEven ? isWeekEven : !isWeekEven;
+};
