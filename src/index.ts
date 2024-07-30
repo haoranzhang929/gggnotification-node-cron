@@ -97,6 +97,13 @@ const handleIncomingMessage = (
           );
           break;
 
+        case Command.Dice:
+          telegramBot.sendMessage(
+            msg.chat.id,
+            `🎲 You rolled a ${Math.floor(Math.random() * 6) + 1}!`
+          );
+          break;
+
         case '/__testcronmsg':
           const testDate = dayjs().toDate();
           telegramBot.sendMessage(

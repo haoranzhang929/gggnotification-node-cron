@@ -35,6 +35,7 @@ export enum Command {
   Bin = '/bin',
   DadJoke = '/dad_joke',
   Fortune = '/fortune',
+  Dice = '/roll',
 }
 
 /**
