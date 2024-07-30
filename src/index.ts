@@ -10,10 +10,10 @@ import { createLogger } from './logging';
 import {
   checkEnvVars,
   checkWhichBinToCollect,
+  formatBinMessage,
   lisfOfEnvVars,
   Command,
   dadJokeHandler,
-  isEvenWeek,
 } from './config';
 
 dayjs.extend(weekOfYear);
@@ -80,12 +80,14 @@ const init = async () => {
           }
           break;
         case Command.Bin:
+          const today = dayjs().toDate();
+          const nextWeek = dayjs().add(7, 'day').toDate();
           telegramBot.sendMessage(
             msg.chat.id,
-            `<strong>This Week:</strong> ${checkWhichBinToCollect(
-              isEvenWeek()
-            )}\n<strong>Next Week:</strong> ${checkWhichBinToCollect(
-              !isEvenWeek()
+            `<strong>This Week:</strong> ${formatBinMessage(
+              checkWhichBinToCollect(today)
+            )}\n<strong>Next Week:</strong> ${formatBinMessage(
+              checkWhichBinToCollect(nextWeek)
             )}`,
             {
               parse_mode: 'HTML',
@@ -93,11 +95,12 @@ const init = async () => {
           );
           break;
         case '/__testcronmsg':
+          const testDate = dayjs().toDate();
           telegramBot.sendMessage(
             msg.chat.id,
-            `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-              isEvenWeek()
-            )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`,
+            `🚨 🫵 <strong>Don't forget to take out the ${formatBinMessage(
+              checkWhichBinToCollect(testDate)
+            )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`,
             {
               parse_mode: 'HTML',
             }
@@ -107,15 +110,16 @@ const init = async () => {
   });
 
   telegramBot.on('polling_error', (error) => {
-    logger.error('Telegrame bot polling error: ', { data: error });
+    logger.error('Telegram bot polling error: ', { data: error });
   });
 
   const cronJob = schedule(
     process.env.CRON_SCHEDULE as string,
     async () => {
-      let alertMessage = `🚨 🫵 <strong>Dont't forget to take out the ${checkWhichBinToCollect(
-        isEvenWeek()
-      )} bin today!</strong>\n\n💦 👀 <strong>Check if the water filter system need some salt too!</strong>`;
+      const today = dayjs().toDate();
+      let alertMessage = `🚨 🫵 <strong>Don't forget to take out the ${formatBinMessage(
+        checkWhichBinToCollect(today)
+      )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`;
       chatIdMap.forEach((chatInfo, chatId) => {
         logger.info(
           `Cron job sending message to ${chatInfo.title}, id: ${chatId}`

@@ -1,94 +1,44 @@
 import dayjs from 'dayjs';
-import weekOfYear from 'dayjs/plugin/weekOfYear';
-import timezone from 'dayjs/plugin/timezone';
-import { checkWhichBinToCollect, isEvenWeek } from './config';
-
-dayjs.extend(weekOfYear);
-dayjs.extend(timezone);
-dayjs.tz.setDefault('Europe/Dublin');
-
-const General = 'General 🟤';
-const RecyclingCompose = 'Recycling 🟢 + Compost 🟡';
+import { checkWhichBinToCollect } from './config';
 
 describe('checkWhichBinToCollect', () => {
-  it('should return the correct bin to collect', () => {
-    expect(checkWhichBinToCollect(true)).toBe(General);
-    expect(checkWhichBinToCollect(false)).toBe(RecyclingCompose);
+  test.each([
+    ['2024-01-01', 'LANDFILL'], // Day before collection
+    ['2024-01-02', 'LANDFILL'], // Collection day
+    ['2024-01-03', 'ORGANIC_RECYCLING'], // Day after collection
+    ['2024-01-09', 'ORGANIC_RECYCLING'],
+    ['2024-01-16', 'LANDFILL'],
+    ['2024-01-23', 'ORGANIC_RECYCLING'],
+    ['2024-01-30', 'LANDFILL'],
+    ['2024-02-05', 'ORGANIC_RECYCLING'], // Day before collection
+    ['2024-02-06', 'ORGANIC_RECYCLING'], // Collection day
+    ['2024-02-07', 'LANDFILL'], // Day after collection
+    ['2024-02-13', 'LANDFILL'],
+    ['2024-02-20', 'ORGANIC_RECYCLING'],
+    ['2024-02-27', 'LANDFILL'],
+    // Add more test cases as needed
+  ])('should return correct bin type for %s', (dateString, expected) => {
+    expect(checkWhichBinToCollect(dayjs(dateString).toDate())).toBe(expected);
   });
 
-  it('should return the correct bin on correct date string', () => {
-    expect(checkWhichBinToCollect(isEvenWeek('2022-01-04'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-01-25'))).toBe(
-      RecyclingCompose
+  test('Non-Tuesday dates', () => {
+    expect(checkWhichBinToCollect(dayjs('2024-07-01').toDate())).toBe(
+      'LANDFILL'
     );
-
-    expect(checkWhichBinToCollect(isEvenWeek('2022-08-02'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-08-16'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-08-23'))).toBe(
-      RecyclingCompose
+    expect(checkWhichBinToCollect(dayjs('2024-07-03').toDate())).toBe(
+      'ORGANIC_RECYCLING'
     );
-
-    expect(checkWhichBinToCollect(isEvenWeek('2022-11-01'))).toBe(
-      RecyclingCompose
+    expect(checkWhichBinToCollect(dayjs('2024-07-04').toDate())).toBe(
+      'ORGANIC_RECYCLING'
     );
-    expect(checkWhichBinToCollect(isEvenWeek('2022-11-08'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-11-15'))).toBe(
-      RecyclingCompose
+    expect(checkWhichBinToCollect(dayjs('2024-07-05').toDate())).toBe(
+      'ORGANIC_RECYCLING'
     );
-    expect(checkWhichBinToCollect(isEvenWeek('2022-11-22'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-11-29'))).toBe(
-      RecyclingCompose
+    expect(checkWhichBinToCollect(dayjs('2024-07-06').toDate())).toBe(
+      'ORGANIC_RECYCLING'
     );
-
-    expect(checkWhichBinToCollect(isEvenWeek('2022-12-06'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2023-01-03'))).toBe(General);
-    expect(checkWhichBinToCollect(isEvenWeek('2022-12-13'))).toBe(
-      RecyclingCompose
-    );
-  });
-
-  it('should return the correct bin on correct date object', () => {
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 1, 4)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 1, 25)))).toBe(
-      RecyclingCompose
-    );
-
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 8, 2)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 8, 16)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 8, 23)))).toBe(
-      RecyclingCompose
-    );
-
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 11, 1)))).toBe(
-      RecyclingCompose
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 11, 8)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 11, 15)))).toBe(
-      RecyclingCompose
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 11, 22)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 11, 29)))).toBe(
-      RecyclingCompose
-    );
-
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 12, 6)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2023, 1, 3)))).toBe(
-      General
-    );
-    expect(checkWhichBinToCollect(isEvenWeek(new Date(2022, 12, 13)))).toBe(
-      RecyclingCompose
+    expect(checkWhichBinToCollect(dayjs('2024-07-07').toDate())).toBe(
+      'ORGANIC_RECYCLING'
     );
   });
 });
