@@ -95,6 +95,7 @@ const handleIncomingMessage = (
               fortunes[Math.floor(Math.random() * fortunes.length)]
             }`
           );
+          break;
 
         case '/__testcronmsg':
           const testDate = dayjs().toDate();
@@ -105,10 +106,6 @@ const handleIncomingMessage = (
             )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`,
             { parse_mode: 'HTML' }
           );
-          break;
-
-        default:
-          telegramBot.sendMessage(msg.chat.id, 'Unknown command.');
           break;
       }
     } catch (error) {
