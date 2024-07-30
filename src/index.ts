@@ -1,11 +1,10 @@
 import { schedule, validate } from 'node-cron';
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, { Chat, Message } from 'node-telegram-bot-api';
 import { config } from 'dotenv';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import dayjs from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import timezone from 'dayjs/plugin/timezone';
-
 import { createLogger } from './logging';
 import {
   checkEnvVars,
@@ -15,70 +14,66 @@ import {
   Command,
   dadJokeHandler,
 } from './config';
+import { fortunes } from './fortunes';
 
 dayjs.extend(weekOfYear);
 dayjs.extend(timezone);
 dayjs.tz.setDefault(process.env.TIMEZONE || 'Europe/Dublin');
 
-const createBot = async () => {
-  const telegramBot = new TelegramBot(
-    process.env.TELEGRAM_BOT_TOKEN as string,
-    {
-      polling: true,
-    }
-  );
-  return { telegramBot, botInfo: await telegramBot.getMe() };
-};
-
 config();
 const logger = createLogger();
 
-const init = async () => {
-  logger.info('Initializing service...');
+// Define interface for bot and bot information
+interface BotInstance {
+  telegramBot: TelegramBot;
+  botInfo: TelegramBot.User;
+}
 
-  const missingEnvs = checkEnvVars(lisfOfEnvVars, logger);
-  if (missingEnvs.length > 0) {
-    throw new Error(`Missing env vars: ${missingEnvs.join(', ')}`);
+// Create and initialize the Telegram bot
+const createBot = async (): Promise<BotInstance> => {
+  try {
+    const telegramBot = new TelegramBot(
+      process.env.TELEGRAM_BOT_TOKEN as string,
+      { polling: true }
+    );
+    const botInfo = await telegramBot.getMe();
+    return { telegramBot, botInfo };
+  } catch (error) {
+    logger.error('Error initializing Telegram bot: ', { data: error });
+    throw new Error('Failed to create Telegram bot');
   }
-  if (!validate(process.env.CRON_SCHEDULE as string)) {
-    const errorMsg = `Invalid cron schedule: ${process.env.CRON_SCHEDULE}`;
-    logger.error(errorMsg);
-    throw new Error(errorMsg);
-  }
-  logger.info('Env var validated');
+};
 
-  const { telegramBot, botInfo } = await createBot();
-
-  const chatIdMap = new Map<number, TelegramBot.Chat>();
-
-  logger.info('Telegram Bot connected, listening to incoming messages...');
-  telegramBot.on('message', async (msg) => {
+// Handle incoming messages from the bot
+const handleIncomingMessage = (
+  telegramBot: TelegramBot,
+  botInfo: TelegramBot.User,
+  chatIdMap: Map<number, Chat>
+) => {
+  telegramBot.on('message', async (msg: Message) => {
     logger.debug('Message Details: ', { data: msg });
-    if (chatIdMap.get(msg.chat.id) === undefined) {
+
+    if (!chatIdMap.has(msg.chat.id)) {
       chatIdMap.set(msg.chat.id, msg.chat);
     }
-    if (msg.text) {
-      const commandWithoutSurfix = msg.text.split(`@${botInfo.username}`)[0];
 
-      switch (commandWithoutSurfix) {
+    const commandWithoutSuffix = msg.text?.split(`@${botInfo.username}`)[0];
+
+    try {
+      switch (commandWithoutSuffix) {
         case Command.Wifi:
           telegramBot.sendMessage(
             msg.chat.id,
-            `Wi-Fi密码:   <code>${process.env.WIFI_PASSWORD}</code>`,
+            `Wi-Fi密码: <code>${process.env.WIFI_PASSWORD}</code>`,
             { parse_mode: 'HTML' }
           );
           break;
+
         case Command.DadJoke:
-          try {
-            telegramBot.sendMessage(msg.chat.id, await dadJokeHandler());
-          } catch (error) {
-            logger.error('Error when calling dad joke API: ', { data: error });
-            telegramBot.sendMessage(
-              msg.chat.id,
-              'Sorry, I am not feeling like telling joke now. Please try again later.'
-            );
-          }
+          const joke = await dadJokeHandler();
+          telegramBot.sendMessage(msg.chat.id, joke);
           break;
+
         case Command.Bin:
           const today = dayjs().toDate();
           const nextWeek = dayjs().add(7, 'day').toDate();
@@ -89,11 +84,18 @@ const init = async () => {
             )}\n<strong>Next Week:</strong> ${formatBinMessage(
               checkWhichBinToCollect(nextWeek)
             )}`,
-            {
-              parse_mode: 'HTML',
-            }
+            { parse_mode: 'HTML' }
           );
           break;
+
+        case Command.Fortune:
+          telegramBot.sendMessage(
+            msg.chat.id,
+            `🔮 Your fortune: ${
+              fortunes[Math.floor(Math.random() * fortunes.length)]
+            }`
+          );
+
         case '/__testcronmsg':
           const testDate = dayjs().toDate();
           telegramBot.sendMessage(
@@ -101,61 +103,101 @@ const init = async () => {
             `🚨 🫵 <strong>Don't forget to take out the ${formatBinMessage(
               checkWhichBinToCollect(testDate)
             )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`,
-            {
-              parse_mode: 'HTML',
-            }
+            { parse_mode: 'HTML' }
           );
+          break;
+
+        default:
+          telegramBot.sendMessage(msg.chat.id, 'Unknown command.');
+          break;
       }
+    } catch (error) {
+      logger.error('Error handling message: ', { data: error });
+      telegramBot.sendMessage(
+        msg.chat.id,
+        'An error occurred. Please try again later.'
+      );
     }
   });
 
   telegramBot.on('polling_error', (error) => {
     logger.error('Telegram bot polling error: ', { data: error });
   });
-
-  const cronJob = schedule(
-    process.env.CRON_SCHEDULE as string,
-    async () => {
-      const today = dayjs().toDate();
-      let alertMessage = `🚨 🫵 <strong>Don't forget to take out the ${formatBinMessage(
-        checkWhichBinToCollect(today)
-      )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`;
-      chatIdMap.forEach((chatInfo, chatId) => {
-        logger.info(
-          `Cron job sending message to ${chatInfo.title}, id: ${chatId}`
-        );
-        logger.debug(`Chat Info: `, { data: chatInfo });
-        telegramBot.sendMessage(chatId, alertMessage, { parse_mode: 'HTML' });
-      });
-    },
-    {
-      timezone: process.env.TIMEZONE,
-    }
-  );
-  cronJob.start();
-  logger.info('Cron job started');
 };
 
-init();
+// Start the cron job for scheduled messages
+const startCronJob = (
+  telegramBot: TelegramBot,
+  chatIdMap: Map<number, Chat>
+) => {
+  try {
+    const cronSchedule = process.env.CRON_SCHEDULE as string;
 
+    if (!validate(cronSchedule)) {
+      throw new Error(`Invalid cron schedule: ${cronSchedule}`);
+    }
+
+    logger.info(
+      `Setting up cron job with schedule: ${cronSchedule}, timezone: ${process.env.TIMEZONE}`
+    );
+
+    const cronJob = schedule(
+      process.env.CRON_SCHEDULE as string,
+      () => {
+        const today = dayjs().toDate();
+        const alertMessage = `🚨 🫵 <strong>Don't forget to take out the ${formatBinMessage(
+          checkWhichBinToCollect(today)
+        )} today!</strong>\n\n💦 👀 <strong>Check if the water filter system needs some salt too!</strong>`;
+        chatIdMap.forEach((chatInfo, chatId) => {
+          logger.info(
+            `Cron job sending message to ${chatInfo.title}, id: ${chatId}`
+          );
+          telegramBot.sendMessage(chatId, alertMessage, { parse_mode: 'HTML' });
+        });
+      },
+      { timezone: process.env.TIMEZONE }
+    );
+
+    cronJob.start();
+    logger.info('Cron job started');
+  } catch (error) {
+    logger.error('Error starting cron job: ', { data: error });
+  }
+};
+
+// Initialize the service
+const init = async () => {
+  logger.info('Initializing service...');
+  const missingEnvs = checkEnvVars(lisfOfEnvVars, logger);
+  if (missingEnvs.length > 0) {
+    throw new Error(`Missing env vars: ${missingEnvs.join(', ')}`);
+  }
+
+  const { telegramBot, botInfo } = await createBot();
+  const chatIdMap = new Map<number, Chat>();
+
+  handleIncomingMessage(telegramBot, botInfo, chatIdMap);
+  startCronJob(telegramBot, chatIdMap);
+};
+
+init().catch((error) => {
+  logger.error('Initialization failed: ', { data: error });
+});
+
+// Express server setup for health checks and root endpoint
 const server = express();
 const port = process.env.PORT || 3000;
 
-server.get('/health', (_req, res) => {
+server.get('/health', (_req: Request, res: Response) => {
   const healthcheck = {
     uptime: process.uptime(),
     message: 'OK',
     timestamp: Date.now(),
   };
-  try {
-    res.send(healthcheck);
-  } catch (error) {
-    healthcheck.message = error as string;
-    res.status(503).send();
-  }
+  res.send(healthcheck);
 });
 
-server.get('/', (_req, res) => {
+server.get('/', (_req: Request, res: Response) => {
   res.send({ message: '格里芬幽谷密林小管家api欢迎你' });
 });
 

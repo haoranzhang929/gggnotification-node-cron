@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Logger } from 'winston';
-import { scheduleData } from './schedule';
 import dayjs from 'dayjs';
+import { scheduleData } from './schedule';
 
 export const lisfOfEnvVars = [
   'TELEGRAM_BOT_TOKEN',
@@ -12,6 +12,12 @@ export const lisfOfEnvVars = [
   'TIMEZONE',
 ];
 
+/**
+ * Checks for missing environment variables and logs them.
+ * @param envVars - List of environment variable names to check.
+ * @param logger - Logger instance for logging messages.
+ * @returns An array of missing environment variable names.
+ */
 export const checkEnvVars = (envVars: string[], logger: Logger) => {
   const missingEnvs: string[] = [];
   envVars.forEach((envVar) => {
@@ -23,12 +29,18 @@ export const checkEnvVars = (envVars: string[], logger: Logger) => {
   return missingEnvs;
 };
 
+// Define available commands
 export enum Command {
   Wifi = '/wifi',
   Bin = '/bin',
   DadJoke = '/dad_joke',
+  Fortune = '/fortune',
 }
 
+/**
+ * Fetches a random dad joke from the RapidAPI.
+ * @returns A string containing the dad joke.
+ */
 export const dadJokeHandler = async () => {
   const response = await axios.get(
     'https://dad-jokes.p.rapidapi.com/random/joke',
@@ -46,6 +58,11 @@ export const dadJokeHandler = async () => {
 
 type BinType = 'LANDFILL' | 'ORGANIC_RECYCLING' | 'NONE';
 
+/**
+ * Determines which bin to collect based on the provided date.
+ * @param date - The date to check for bin collection.
+ * @returns The type of bin to collect.
+ */
 export function checkWhichBinToCollect(date: Date = new Date()): BinType {
   const checkDate = dayjs(date);
   const year = checkDate.year().toString();
