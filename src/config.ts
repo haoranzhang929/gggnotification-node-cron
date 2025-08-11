@@ -57,7 +57,7 @@ export const dadJokeHandler = async () => {
   return `😉 Here is your dad joke:\n\n${dadJoke.setup}\n\n${dadJoke.punchline}`;
 };
 
-type BinType = 'LANDFILL' | 'ORGANIC_RECYCLING' | 'NONE';
+type BinType = 'RECYCLING' | 'LANDFILL_ORGANIC' | 'NONE';
 
 /**
  * Determines which bin to collect based on the provided date.
@@ -96,10 +96,10 @@ export function checkWhichBinToCollect(date: Date = new Date()): BinType {
 
 export const formatBinMessage = (binType: BinType): string => {
   switch (binType) {
-    case 'LANDFILL':
-      return 'General 🟤';
-    case 'ORGANIC_RECYCLING':
-      return 'Recycling 🟢 + Compost 🟡';
+    case 'RECYCLING':
+      return 'Recycling 🟢';
+    case 'LANDFILL_ORGANIC':
+      return 'General 🟤 + Compost 🟡';
     default:
       return 'Unknown bin type';
   }
