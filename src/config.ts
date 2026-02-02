@@ -1,7 +1,15 @@
 import axios from 'axios';
 import { Logger } from 'winston';
 import dayjs from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { scheduleData } from './schedule';
+
+dayjs.extend(weekOfYear);
+
+// Fallback rule (when explicit scheduleData doesn't include the year):
+// Bin collection alternates weekly. Use a known reference collection date.
+const REFERENCE_COLLECTION_DATE = dayjs('2024-01-02'); // Tuesday
+const REFERENCE_BIN: BinType = 'RECYCLING';
 
 export const lisfOfEnvVars = [
   'TELEGRAM_BOT_TOKEN',
@@ -59,6 +67,27 @@ export const dadJokeHandler = async () => {
 
 type BinType = 'RECYCLING' | 'LANDFILL_ORGANIC' | 'NONE';
 
+function getNextCollectionDate(from: dayjs.Dayjs): dayjs.Dayjs {
+  // Based on scheduleData, collection day is Tuesday.
+  // dayjs: Sunday=0 ... Saturday=6, Tuesday=2
+  const TUESDAY = 2;
+  const dow = from.day();
+  const delta = (TUESDAY - dow + 7) % 7;
+  return from.add(delta, 'day').startOf('day');
+}
+
+function getBinByAlternatingWeeks(date: Date): BinType {
+  const target = getNextCollectionDate(dayjs(date));
+  const ref = REFERENCE_COLLECTION_DATE.startOf('day');
+
+  const weeksDiff = target.diff(ref, 'week');
+  const isEven = Math.abs(weeksDiff) % 2 === 0;
+  if (REFERENCE_BIN === 'RECYCLING') {
+    return isEven ? 'RECYCLING' : 'LANDFILL_ORGANIC';
+  }
+  return isEven ? 'LANDFILL_ORGANIC' : 'RECYCLING';
+}
+
 /**
  * Determines which bin to collect based on the provided date.
  * @param date - The date to check for bin collection.
@@ -70,12 +99,12 @@ export function checkWhichBinToCollect(date: Date = new Date()): BinType {
   const month = (checkDate.month() + 1).toString();
   const day = checkDate.date().toString();
 
-  // Check if today is a collection day
+  // Preferred: explicit per-date schedule (when available)
   if (scheduleData[year]?.[month]?.[day]) {
     return scheduleData[year][month][day];
   }
 
-  // Find the next collection day
+  // Find the next collection day (within the next 7 days) from explicit schedule
   for (let i = 0; i < 7; i++) {
     const nextDate = checkDate.add(i, 'day');
     const nextYear = nextDate.year().toString();
@@ -87,11 +116,9 @@ export function checkWhichBinToCollect(date: Date = new Date()): BinType {
     }
   }
 
-  // If no collection day found in the next 7 days, return the last known collection type
-  const lastKnownMonth = Object.keys(scheduleData[year]).pop() || month;
-  const lastKnownDay =
-    Object.keys(scheduleData[year][lastKnownMonth]).pop() || '1';
-  return scheduleData[year][lastKnownMonth][lastKnownDay];
+  // Fallback: if the year isn't present (e.g. 2026+), infer by weekly alternation.
+  // This avoids crashes like `Object.keys(scheduleData[year])` when scheduleData[year] is undefined.
+  return getBinByAlternatingWeeks(date);
 }
 
 export const formatBinMessage = (binType: BinType): string => {
